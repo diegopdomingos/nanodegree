@@ -78,18 +78,15 @@ My final model consisted of the following layers:
 | Input         		| 32x32x1 GrayScale Image   							| 
 | Convolution 3x3     	| 1x1 stride, same padding, outputs 32x32x64 	|
 | RELU					|												|
-| Max pooling	      	| 1x1 stride,  outputs 16x16x64 				|
-| Convolution 3x3	    | etc.      									|
-| Fully connected		| etc.        									|
+| Max pooling	      	| Kernel size: 2x2, Strides: 2x2 				|
+| Convolution 3x3	    | 1x1 stride, same padding, outputs 32x32x64    									|
+| Fully connected		| Input: 2304, Output: 900        									|
 | RELU			| |
-| MaxPooling		| 2x2 |
-| Fully connected	| Output: 600 |
+| MaxPooling		| Kernel size: 2x2 , Strides: 2x2|
+| Fully connected	| Input: 900, output: 350 |
 | RELU			| |
-| MaxPooling		| |
-| Fully connected	| |
-| Softmax				| etc.        									|
-|						|												|
-|						|												|
+| Fully connected	| Input: 350, output: 43|
+| Softmax				|         									|
  
 
 To train the model, I used the following:
@@ -164,3 +161,5 @@ All predictions occured with 100% of probability. This is very strange and need 
 The last exercise was to visualize the features of the convolutional filters. 
 
 ![alt_text][image5]
+
+There are some interesting features that we can see in the image above. For example, the feature map 58 is activated showing the circle and the arrow. In the feature map 5 we can see only the arrow. These features can show how they can, for example, approximately detect some edges or a somewhat blur transformation like the feature 32.
