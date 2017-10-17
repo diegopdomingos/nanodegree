@@ -15,10 +15,9 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./writeup/classes_distribution.jpg "Visualization"
-[image1a]: ./writeup/classes_examples.jpg "Examples"
+[image1]: ./writeup/classes_distribution.png "Visualization"
+[image1a]: ./writeup/classes_examples.png "Examples"
 [image2]: ./writeup/grayscale.png "Grayscaling"
-[image3]: ./writeup/random_noise.jpg "Random Noise"
 [image4]: ./writeup/internet_images.png "New images from internet"
 [image5]: ./writeup/features.png "Feature map of Conv1 Layer"
 
