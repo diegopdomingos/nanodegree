@@ -27,7 +27,7 @@ The goals / steps of this project are the following:
 ---
 ###Writeup / README
 
-You're reading it! and here is a link to my [project code](https://github.com/diegopdomingos/nanodegree/blob/master/CarND-Traffic-Sign-Classifier-Project/Traffic_Sign_Classifier.ipynb)
+You're reading it! and here is a link to my [project code](https://github.com/diegopdomingos/nanodegree/blob/master/CarND-Traffic-Sign-Classifier-Project/Traffic_Sign_Classifier.ipynb) and to [html version](https://github.com/diegopdomingos/nanodegree/blob/master/CarND-Traffic-Sign-Classifier-Project/Traffic_Sign_Classifier.html)
 
 ###Data Set Summary & Exploration
 
