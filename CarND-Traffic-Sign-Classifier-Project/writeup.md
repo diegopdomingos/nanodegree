@@ -15,7 +15,8 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./writeup/visualization.jpg "Visualization"
+[image1]: ./writeup/classes_distribution.jpg "Visualization"
+[image1a]: ./writeup/classes_examples.jpg "Examples"
 [image2]: ./writeup/grayscale.png "Grayscaling"
 [image3]: ./writeup/random_noise.jpg "Random Noise"
 [image4]: ./writeup/internet_images.png "New images from internet"
@@ -23,14 +24,11 @@ The goals / steps of this project are the following:
 
 
 ## Rubric Points
-###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/481/view) individually and describe how I addressed each point in my implementation.  
 
 ---
 ###Writeup / README
 
-####1. Provide a Writeup / README that includes all the rubric points and how you addressed each one. You can submit your writeup as markdown or pdf. You can use this template as a guide for writing the report. The submission includes the project code.
-
-You're reading it! and here is a link to my [project code](https://github.com/udacity/CarND-Traffic-Sign-Classifier-Project/blob/master/Traffic_Sign_Classifier.ipynb)
+You're reading it! and here is a link to my [project code](https://github.com/diegopdomingos/nanodegree/blob/master/CarND-Traffic-Sign-Classifier-Project/Traffic_Sign_Classifier.ipynb)
 
 ###Data Set Summary & Exploration
 
@@ -50,9 +48,9 @@ Here is an exploratory visualization of the data set. It is a bar chart showing 
 ![alt text][image1]
 
 
-Now, I printed the images to check which sign belongs to which class.
+Then, I printed the images to check which sign belongs to which class.
 
-![alt text][image1.1]
+![alt text][image1a]
 
 ###Design and Test a Model Architecture
 
@@ -64,10 +62,11 @@ Another thing that I did was to normalize the data with the suggested (pixel-128
 
 Here is an example of a traffic sign image before and after grayscaling.
 
+![alt_text][image4]
 ![alt text][image2]
 
 
-I failed trying to put some augmented images due to lack of knowledge using tensorflow. I did try some tensors like tf.image.random_contrast, tf.image.random_hue, etc. This not worked as expected since I'm not familiar with this functions.
+I failed trying to put some augmented images due to lack of knowledge using tensorflow. I did try some tensors like tf.image.random_contrast, tf.image.random_hue, etc. This not worked as expected since I'm not familiar with this functions and the tests didn't improved with these new images. However, because the orientation matters, there are some extra work that we need to do: once if you flip an sign, this can change the class of this image and it must be managed to not create bad data on our set.
 
 
 
@@ -111,7 +110,7 @@ My final model results were:
 
 The first archutecture used was LeNet. I did some trainings but the validation accuracy were about 92%. Then, I did some tests rising the number of filters in the convolution steps. One thing that I noticied is that the training starts with more accuracy (0.88 instead 0.77), although it starts to saturate earlier. 
 
-This kind of behavior suggests that we are dealing with overfitting. Then, I added dropout layers betweeb fully connected layer 1 and 2 and another between 2 and 3 with chance of drop of 30%. This dropout layer can help to prevent overfitting, since in each training step, some alleatory connections between neurons are choosen and set to 0. This feature can force the net to not depend on a single neuron and improves the overall classification of the net.
+After that, I got a CNN with two convolutional layers with 64 filters each and 3x3 filter. Because it generates a big flatten layer in the dense step, I decided to add dropout layers between the fully connected layer 1 and 2 and another one between 2 and 3 with chance of drop of 50%. This dropout layer can help to prevent overfitting, since in each training step, some alleatory connections between neurons are choosen and set to 0. This feature can force the net to not depend on a single neuron and improves the overall classification of the net. In fact, the discrepancy of the training and validation accuracy decreased.
 
 The number of ephocs was chosen by checking the history of large trainings (ephocs = 90, 100, etc) and I noticied that it stops increasing very fast.
 
@@ -119,18 +118,6 @@ The convolution layer works well in this problem because there are some caracter
 
 The result in the training, validation and test sets provides evidence that the model is working well, since they are close to the 100% and where are no enough discrepances between them.
 
-If an iterative approach was chosen:
-* What was the first architecture that was tried and why was it chosen?
-* What were some problems with the initial architecture?
-* How was the architecture adjusted and why was it adjusted? Typical adjustments could include choosing a different model architecture, adding or taking away layers (pooling, dropout, convolution, etc), using an activation function or changing the activation function. One common justification for adjusting an architecture would be due to overfitting or underfitting. A high accuracy on the training set but low accuracy on the validation set indicates over fitting; a low accuracy on both sets indicates under fitting.
-* Which parameters were tuned? How were they adjusted and why?
-* What are some of the important design choices and why were they chosen? For example, why might a convolution layer work well with this problem? How might a dropout layer help with creating a successful model?
-
-If a well known architecture was chosen:
-* What architecture was chosen?
-* Why did you believe it would be relevant to the traffic sign application?
-* How does the final model's accuracy on the training, validation and test set provide evidence that the model is working well?
- 
 
 ###Test a Model on New Images
 
