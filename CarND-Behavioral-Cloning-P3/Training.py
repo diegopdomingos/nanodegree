@@ -64,7 +64,7 @@ def generator(samples, batch_size=32):
                 left_image = cv2.imread(name)
                 left_angle = float(batch_sample[3])
                 images.append(left_image)
-                angles.append(left_angle+0.01)
+                angles.append(left_angle+0.1)
                 
                 # Flip image
                 #image_flipped = np.fliplr(left_image)
@@ -80,7 +80,7 @@ def generator(samples, batch_size=32):
                 right_image = cv2.imread(name)
                 right_angle = float(batch_sample[3])
                 images.append(right_image)
-                angles.append(right_angle-0.01)
+                angles.append(right_angle-0.1)
                 
                 # Flip image
                 #image_flipped = np.fliplr(right_image)
@@ -124,6 +124,6 @@ validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
 model.compile(loss="mse", optimizer="Adam")
 #model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=1)
-model.fit_generator(train_generator, steps_per_epoch=             len(train_samples)/BATCH_SIZE+1, validation_data=validation_generator,             validation_steps=len(validation_samples)/BATCH_SIZE+1, epochs=1)
+model.fit_generator(train_generator, steps_per_epoch=             len(train_samples)/BATCH_SIZE+1, validation_data=validation_generator,             validation_steps=len(validation_samples)/BATCH_SIZE+1, epochs=2)
 model.save("model.h5")
 
