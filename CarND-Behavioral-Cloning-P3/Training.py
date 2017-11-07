@@ -51,10 +51,10 @@ def generator(samples, batch_size=32):
                 angles.append(center_angle)
                 
                 # Flip image
-                #image_flipped = np.fliplr(center_image)
-                #measurement_flipped = -center_angle
-                #images.append(image_flipped)
-                #angles.append(measurement_flipped)
+                image_flipped = np.fliplr(center_image)
+                measurement_flipped = -center_angle
+                images.append(image_flipped)
+                angles.append(measurement_flipped)
                 
                 # For linux (left)
                 if batch_sample[1][0] == '/':
@@ -67,10 +67,10 @@ def generator(samples, batch_size=32):
                 angles.append(left_angle+0.1)
                 
                 # Flip image
-                #image_flipped = np.fliplr(left_image)
-                #measurement_flipped = -(left_angle+0.8)
-                #images.append(image_flipped)
-                #angles.append(measurement_flipped)
+                image_flipped = np.fliplr(left_image)
+                measurement_flipped = -(left_angle+0.1)
+                images.append(image_flipped)
+                angles.append(measurement_flipped)
                 
                 # For linux (right)
                 if batch_sample[2][0] == '/':
@@ -83,10 +83,10 @@ def generator(samples, batch_size=32):
                 angles.append(right_angle-0.1)
                 
                 # Flip image
-                #image_flipped = np.fliplr(right_image)
-                #measurement_flipped = -(right_angle-0.8)
-                #images.append(image_flipped)
-                #angles.append(measurement_flipped)
+                image_flipped = np.fliplr(right_image)
+                measurement_flipped = -(right_angle-0.1)
+                images.append(image_flipped)
+                angles.append(measurement_flipped)
 
             # trim image to only see section with road
             X_train = np.array(images)
@@ -124,6 +124,6 @@ validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
 model.compile(loss="mse", optimizer="Adam")
 #model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=1)
-model.fit_generator(train_generator, steps_per_epoch=             len(train_samples)/BATCH_SIZE+1, validation_data=validation_generator,             validation_steps=len(validation_samples)/BATCH_SIZE+1, epochs=2)
+model.fit_generator(train_generator, steps_per_epoch=             len(train_samples)/BATCH_SIZE+1, validation_data=validation_generator,             validation_steps=len(validation_samples)/BATCH_SIZE+1, epochs=1)
 model.save("model.h5")
 
