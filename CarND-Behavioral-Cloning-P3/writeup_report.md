@@ -14,10 +14,10 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [image1]: ./examples/placeholder.png "Model Visualization"
-[image2]: ./data/IMG/center_2017_10_31_21_29_37_313.jpg "Center image inside car"
-[image3]: ./data/IMG/center_2017_11_04_16_33_21_586.jpg "Recovery Image"
-[image4]: ./data/IMG/center_2017_11_05_12_32_34_861.jpg "Recovery Image"
-[image5]: ./data/IMG/center_2017_11_05_12_32_37_115.jpg "Recovery Image"
+[image2]: ./examples/IMG/center_2017_10_31_21_29_37_313.jpg "Center image inside car"
+[image3]: ./examples/IMG/center_2017_11_04_16_33_21_586.jpg "Recovery Image"
+[image4]: ./examples/IMG/center_2017_11_05_12_32_34_861.jpg "Recovery Image"
+[image5]: ./examples/IMG/center_2017_11_05_12_32_37_115.jpg "Recovery Image"
 
 ## Rubric Points
 ###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/432/view) individually and describe how I addressed each point in my implementation.  
