@@ -68,7 +68,7 @@ def generator(samples, batch_size=32):
                 
                 # Flip image
                 image_flipped = np.fliplr(left_image)
-                measurement_flipped = -(left_angle+0.8)
+                measurement_flipped = -(left_angle+0.1)
                 images.append(image_flipped)
                 angles.append(measurement_flipped)
                 
@@ -84,7 +84,7 @@ def generator(samples, batch_size=32):
                 
                 # Flip image
                 image_flipped = np.fliplr(right_image)
-                measurement_flipped = -(right_angle-0.8)
+                measurement_flipped = -(right_angle-0.1)
                 images.append(image_flipped)
                 angles.append(measurement_flipped)
 
