@@ -15,11 +15,9 @@ The goals / steps of this project are the following:
 
 [image1]: ./examples/placeholder.png "Model Visualization"
 [image2]: ./data/IMG/center_2017_10_31_21_29_37_313.jpg "Center image inside car"
-[image3]: ./data/IMG/center_2017_11_05_22_44_59_899.jpg "Recovery Image"
-[image4]: ./data/IMG/center_2017_11_05_22_45_00_192.jpg "Recovery Image"
-[image5]: ./data/IMG/center_2017_11_05_22_45_00_836.jpg "Recovery Image"
-[image6]: ./examples/placeholder_small.png "Normal Image"
-[image7]: ./examples/placeholder_small.png "Flipped Image"
+[image3]: ./data/IMG/center_2017_11_04_16_33_21_586.jpg "Recovery Image"
+[image4]: ./data/IMG/center_2017_11_05_12_32_34_861.jpg "Recovery Image"
+[image5]: ./data/IMG/center_2017_11_05_12_32_37_115.jpg "Recovery Image"
 
 ## Rubric Points
 ###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/432/view) individually and describe how I addressed each point in my implementation.  
@@ -106,10 +104,12 @@ To capture good driving behavior, I first recorded two laps on track one using c
 
 ![alt text][image2]
 
-I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to .... These images show what a recovery looks like starting from ... :
+I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to recover when it is going to exit from the lane. These images show what a recovery looks like starting from right to the center :
 
 ![alt text][image3]
+
 ![alt text][image4]
+
 ![alt text][image5]
 
 To augment the data set, I also flipped images and angles thinking that this would improves the training. 
