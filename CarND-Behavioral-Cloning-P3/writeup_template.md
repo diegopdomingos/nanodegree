@@ -54,13 +54,13 @@ The model.py file contains the code for training and saving the convolution neur
 
 ####1. An appropriate model architecture has been employed
 
-My model consists of a convolution neural network with 3x3 filter sizes and depths between 32 and 128 (model.py lines 18-24) 
+My model consists of a convolution neural network with 3x3 filter sizes and depths between 3 and 48 (model.py lines XX-YY) 
 
-The model includes RELU layers to introduce nonlinearity (code line 20), and the data is normalized in the model using a Keras lambda layer (code line 18). 
+The model includes RELU layers to introduce nonlinearity (code line XX), and the data is normalized in the model using a Keras lambda layer (code line ZZ). 
 
 ####2. Attempts to reduce overfitting in the model
 
-The model contains dropout layers in order to reduce overfitting (model.py lines 21). 
+The model contains dropout layers in order to reduce overfitting (model.py lines 21).
 
 The model was trained and validated on different data sets to ensure that the model was not overfitting (code line 10-16). The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
 
@@ -70,7 +70,7 @@ The model used an adam optimizer, so the learning rate was not tuned manually (m
 
 ####4. Appropriate training data
 
-Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road ... 
+Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road. Yet, some training inside the bridge was intense to reduce deviation inside it - my model tries to keep the car exactly in the center of the bridge lane.
 
 For details about how I created the training data, see the next section. 
 
@@ -78,23 +78,34 @@ For details about how I created the training data, see the next section.
 
 ####1. Solution Design Approach
 
-The overall strategy for deriving a model architecture was to ...
+The overall strategy for deriving a model architecture was to train it with enough input images, check the MSE and, once it reaches a ood value (low value), check for the driving behavior of the car in the track 1 of the simulator.
 
-My first step was to use a convolution neural network model similar to the ... I thought this model might be appropriate because ...
+My first step was to use a convolution neural network model similar to the NVIDIA Team[https://devblogs.nvidia.com/parallelforall/deep-learning-self-driving-cars/] I thought this model might be appropriate because it was used for self driving cars and it has many convolutional layers, which might can extract some interesting features to our dense network.
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
+In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set in a factor of 0.2. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
 
-To combat the overfitting, I modified the model so that ...
+To combat the overfitting, first I added more images (ran the simulator again). modified the model so that 
 
-Then I ... 
-
-The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track... to improve the driving behavior in these cases, I ....
+The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track, like in the bridge - the car was very unstable and, to improve the driving behavior in these case, I drove in the such manner that showing to the model what is expected when the car is near the left or the right of the lane, i.e driving to the center again. After that, I found some problemas near the dirt track but it improves a little doing more training around it. I found that is very difficult to the Neural Network see it. One improve that I think should perform better is trying to change the contrast and other colors features of the input image.
 
 At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
 
 ####2. Final Model Architecture
 
-The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes ...
+The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes:
+
+- Lambda Layer to normalize the image
+- Cropping to take just the lane instead trees and the sky, for example.
+- Convolution with (5,5) kernel and 3 features (relu as activation and MaxPooling, 2x2, for nonlinearity)
+- Convolution with (5,5) kernel and 24 features (relu as activation and MaxPooling, 2x2, for nonlinearity)
+- Convolution with (5,5) kernel and 36 features (relu as activation and MaxPooling, 2x2, for nonlinearity)
+- Convolution with (3,3) kernel and 48 features (relu as activation and MaxPooling, 2x2, for nonlinearity)
+- Flatten layer
+- Dense with 1164 neurons
+- Dense with 100 neurons
+- Dense with 50 neurons
+- Dense with 10 neurons
+- Dense with 1 neurons (output)
 
 Here is a visualization of the architecture (note: visualizing the architecture is optional according to the project rubric)
 
@@ -112,9 +123,7 @@ I then recorded the vehicle recovering from the left side and right sides of the
 ![alt text][image4]
 ![alt text][image5]
 
-Then I repeated this process on track two in order to get more data points.
-
-To augment the data sat, I also flipped images and angles thinking that this would ... For example, here is an image that has then been flipped:
+To augment the data set, I also flipped images and angles thinking that this would improves the training. For example, here is an image that has then been flipped:
 
 ![alt text][image6]
 ![alt text][image7]
@@ -123,7 +132,8 @@ Etc ....
 
 After the collection process, I had X number of data points. I then preprocessed this data by ...
 
-
 I finally randomly shuffled the data set and put Y% of the data into a validation set. 
 
 I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was Z as evidenced by ... I used an adam optimizer so that manually training the learning rate wasn't necessary.
+
+
