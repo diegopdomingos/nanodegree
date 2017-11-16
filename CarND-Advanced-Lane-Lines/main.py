@@ -469,7 +469,7 @@ def process_image(img):
 
     # Perspective Transform
     src = np.float32([[150, img.shape[0]],[590, 450],[687, 450],[1140, img.shape[0]]])
-    dst = np.float32([[150, img.shape[0]],[150, 0],[1140, 0],[1140, img.shape[0]]])
+    dst = np.float32([[200, img.shape[0]],[200, 0],[1000, 0],[1000, img.shape[0]]])
     
     if visualize:
         visualize_perspective(img, src)
@@ -510,21 +510,21 @@ def main():
     global dist
     global visualize
 
-    visualize = True
+    visualize = False
 
     # Camera calibration
     mtx, dist = camera_calibration(9,6,"camera_cal/calibration*.jpg")
 
     # Load image
-    for i in range(3,4):
-        img = plt.imread("test_images/test%s.jpg" % i)
-        img = process_image(img)
-        plt.imshow(img)
-        plt.show()
+    #for i in range(3,4):
+    #    img = plt.imread("test_images/test%s.jpg" % i)
+    #    img = process_image(img)
+    #    plt.imshow(img)
+    #    plt.show()
 
-    #clip1 = VideoFileClip("project_video.mp4")
-    #clip = clip1.fl_image(process_image)
-    #clip.write_videofile("test.mp4")
+    clip1 = VideoFileClip("project_video.mp4")
+    clip = clip1.fl_image(process_image)
+    clip.write_videofile("test.mp4")
 
     # Measuring Curvature
 
