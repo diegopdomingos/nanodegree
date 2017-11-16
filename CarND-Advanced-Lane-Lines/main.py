@@ -222,7 +222,7 @@ def get_s_channel(image):
 
     return combined_binary
 
-def sobel(img, grad_threshold=(0,255), mag_threshold=(0,255), dir_threshold=(0,255), ksize=3, visualize=False):
+def color_and_gradient(img, grad_threshold=(0,255), mag_threshold=(0,255), dir_threshold=(0,255), s_threshold=(170,255), ksize=3, visualize=False):
 
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
@@ -238,10 +238,8 @@ def sobel(img, grad_threshold=(0,255), mag_threshold=(0,255), dir_threshold=(0,2
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     S = hls[:,:,2]
 
-    s_thresh_min = 170
-    s_thresh_max = 255
     s_binary = np.zeros_like(S)
-    s_binary[(S >= s_thresh_min) & (S <= s_thresh_max)] = 1
+    s_binary[(S >= s_threshold[0]) & (S <= s_threshold[1])] = 1
 
     combined_binary = np.zeros_like(combined)
     combined_binary[(s_binary == 1) | (combined == 1)] = 1
@@ -467,7 +465,7 @@ def process_image(img):
     img = cv2.undistort(img, mtx, dist, None, mtx)
 
     # Thresholding
-    #sobel_img = sobel(gray, grad_threshold=(50,100), mag_threshold=(20,140), dir_threshold=(0.3,1.7), ksize=15, visualize=visualize)
+    #sobel_img = color_and_gradient(img, grad_threshold=(50,100), mag_threshold=(20,140), dir_threshold=(0.3,1.7), ksize=15, visualize=visualize)
 
     # Perspective Transform
     src = np.float32([[150, img.shape[0]],[590, 450],[687, 450],[1140, img.shape[0]]])
@@ -481,14 +479,12 @@ def process_image(img):
     if visualize:
         visualize_perspective(warped, dst)
 
-    #warped = get_s_channel(warped)
-
-    warped = sobel(warped, grad_threshold=(50,100), mag_threshold=(30,100), dir_threshold=(0.5,1.7), ksize=15, visualize=visualize)
+    warped = color_and_gradient(warped, grad_threshold=(50,100), mag_threshold=(70,100), dir_threshold=(0.9,1.7), s_threshold=(170,255), ksize=15, visualize=visualize)
 
     # Finding the lanes
     if not left_line.detected:
         warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=30)
-        #left_line.detected = True
+        left_line.detected = True
     else:
         left_fit = left_line.current_fit
         right_fit = right_line.current_fit
@@ -502,7 +498,7 @@ def process_image(img):
     left_line.allx = left_fitx
     left_line.ally = ploty
     left_line.calc_radius_of_curvature()
-    print(left_line.radius_of_curvature)
+    #print(left_line.radius_of_curvature)
 
     return img
 
@@ -520,9 +516,11 @@ def main():
     mtx, dist = camera_calibration(9,6,"camera_cal/calibration*.jpg")
 
     # Load image
-    for i in range(1,5):
+    for i in range(3,4):
         img = plt.imread("test_images/test%s.jpg" % i)
         img = process_image(img)
+        plt.imshow(img)
+        plt.show()
 
     #clip1 = VideoFileClip("project_video.mp4")
     #clip = clip1.fl_image(process_image)
@@ -530,8 +528,7 @@ def main():
 
     # Measuring Curvature
 
-        plt.imshow(img)
-        plt.show()
+        
 
 if __name__ == '__main__':
 
