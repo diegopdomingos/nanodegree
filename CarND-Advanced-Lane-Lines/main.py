@@ -51,13 +51,10 @@ class Line():
 
         # Fit new polynomials to x,y in world space
         fit_cr = np.polyfit(self.ally*ym_per_pix, self.allx*xm_per_pix, 2)
-        #right_fit_cr = np.polyfit(ploty*ym_per_pix, rightx*xm_per_pix, 2)
+
         # Calculate the new radii of curvature
         curverad = ((1 + (2*fit_cr[0]*np.max(self.ally)*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
-        #right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
-        # Now our radius of curvature is in meters
-        #print(left_curverad, 'm', right_curverad, 'm')
-        # Example values: 632.1 m    626.2 m
+
         self.radius_of_curvature = curverad
 
 left_line = Line()
@@ -469,7 +466,7 @@ def process_image(img):
 
     # Perspective Transform
     src = np.float32([[150, img.shape[0]],[590, 450],[687, 450],[1140, img.shape[0]]])
-    dst = np.float32([[200, img.shape[0]],[200, 0],[1000, 0],[1000, img.shape[0]]])
+    dst = np.float32([[300, img.shape[0]],[300, 0],[1000, 0],[1000, img.shape[0]]])
     
     if visualize:
         visualize_perspective(img, src)
@@ -479,16 +476,16 @@ def process_image(img):
     if visualize:
         visualize_perspective(warped, dst)
 
-    warped = color_and_gradient(warped, grad_threshold=(50,100), mag_threshold=(70,100), dir_threshold=(0.9,1.7), s_threshold=(170,255), ksize=15, visualize=visualize)
+    warped = color_and_gradient(warped, grad_threshold=(50,100), mag_threshold=(70,100), dir_threshold=(0.9,1.7), s_threshold=(120,255), ksize=15, visualize=visualize)
 
     # Finding the lanes
     if not left_line.detected:
-        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=30)
+        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=50)
         left_line.detected = True
     else:
         left_fit = left_line.current_fit
         right_fit = right_line.current_fit
-        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=30)
+        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=50,visualize=visualize)
 
     # Draw the found lanes
     img = drawing(img, warped, Minv, left_fitx, right_fitx, ploty)
@@ -516,15 +513,15 @@ def main():
     mtx, dist = camera_calibration(9,6,"camera_cal/calibration*.jpg")
 
     # Load image
-    #for i in range(3,4):
-    #    img = plt.imread("test_images/test%s.jpg" % i)
-    #    img = process_image(img)
-    #    plt.imshow(img)
-    #    plt.show()
+    #for i in range(1,5):
+        #img = plt.imread("test_images/test%s.jpg" % i)
+        #img = process_image(img)
+        #plt.imshow(img)
+       # plt.show()
 
     clip1 = VideoFileClip("project_video.mp4")
     clip = clip1.fl_image(process_image)
-    clip.write_videofile("test.mp4")
+    clip.write_videofile("test2.mp4")
 
     # Measuring Curvature
 
