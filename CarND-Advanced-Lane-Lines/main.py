@@ -526,7 +526,7 @@ def process_image(img):
     if visualize:
         visualize_perspective(warped, dst)
 
-    warped = color_and_gradient(warped, grad_threshold=(30,100), mag_threshold=(70,140), dir_threshold=(0.9,1.7), s_threshold=(120,255), ksize=15, visualize=visualize)
+    warped = color_and_gradient(warped, grad_threshold=(50,100), mag_threshold=(70,100), dir_threshold=(0.9,1.7), s_threshold=(80,255), ksize=15, visualize=visualize)
 
     # Finding the lanes using sliding window if we need it
     if left_line.force_rescan() or right_line.force_rescan():
@@ -556,21 +556,21 @@ def main():
     global dist
     global visualize
 
-    visualize = True
+    visualize = False
 
     # Camera calibration to undistort images
     mtx, dist = camera_calibration(9,6,"camera_cal/calibration*.jpg")
 
     # Load image
-    for i in range(1,2):
-        img = plt.imread("test_images/straight_lines1.jpg")
-        img = process_image(img)
-        plt.imshow(img)
-        plt.show()
+    #for i in range(1,2):
+        #img = plt.imread("test_images/test%s.jpg" % i)
+        #img = process_image(img)
+        #plt.imshow(img)
+        #plt.show()
 
-    #clip1 = VideoFileClip("project_video.mp4")
-    #clip = clip1.fl_image(process_image)
-    #clip.write_videofile("test6.mp4")
+    clip1 = VideoFileClip("project_video.mp4")
+    clip = clip1.fl_image(process_image)
+    clip.write_videofile("test6.mp4")
 
         
 

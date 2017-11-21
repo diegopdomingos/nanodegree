@@ -35,10 +35,6 @@ The goals / steps of this project are the following:
 
 ### Writeup / README
 
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
-
-You're reading it!
-
 ### Camera Calibration
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
@@ -118,7 +114,7 @@ I implemented this step in lines 470 through 493 in my code in `main.py` in the 
 ### Pipeline (video)
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./project_video_result.mp4)
 
 ---
 
@@ -143,5 +139,5 @@ Because the road has a lot of noise, there are sometimes that we miss the lines 
 
 If we get enough failures in this sanity (3 times), we start by searching the lines with sliding window again.
 
-There are some improvement that we can do to make it more robust, for example, tuning the parameters to get yet better results with our binary images. Yet, we can 
+There are some improvement that we can do to make it more robust, for example, tuning the parameters to get better results with our binary images. Yet, we can use more conditions when our sliding windows don't find enough blocks of pixels, causing a bad fit.
   
