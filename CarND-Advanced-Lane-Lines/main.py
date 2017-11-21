@@ -11,14 +11,16 @@ import matplotlib.image as mpimg
 import glob
 from moviepy.editor import VideoFileClip
 
-THRESHOLD_MIN = 30
-THRESHOLD_MAX = 100
+THRESHOLD_MSE = 500
+MAX_X_DISTANCE = 0.5
+MAX_MSE_PARALLEL = 0.03
+MAX_FAILURES = 3
+NUMBER_OF_RECENT_XFITTED = 3
+MAX_LANE_WIDTH = 4.0
+MIN_LANE_WIDTH = 3.4
 
-initial_loop = True
 mtx, dist = None, None
-visualize = False
-left_fit = None
-right_fit = None
+visualize = False # Set True to see the transformation images
 
 # Define a class to receive the characteristics of each line detection
 class Line():
@@ -43,29 +45,120 @@ class Line():
         self.allx = None  
         #y values for detected line pixels
         self.ally = None
+        # Define conversions in x and y from pixels space to meters
+        self.ym_per_pix = 30/720 # meters per pixel in y dimension
+        self.xm_per_pix = 3.7/635 # meters per pixel in x dimension
+        # TODO: drop out this hardcoded guy
+        self.camera_width = 640 + 5  # Center of image + correction factor
+        # Number of failures
+        self.failures = MAX_FAILURES+1
+        # If we needed to rescan with sliding windows in the
+        # previous loop
+        self.rescanned = True
+
 
     def calc_radius_of_curvature(self):
-        # Define conversions in x and y from pixels space to meters
-        ym_per_pix = 30/720 # meters per pixel in y dimension
-        xm_per_pix = 3.7/700 # meters per pixel in x dimension
-
         # Fit new polynomials to x,y in world space
-        fit_cr = np.polyfit(self.ally*ym_per_pix, self.allx*xm_per_pix, 2)
-
+        fit_cr = np.polyfit(self.ally*self.ym_per_pix, self.allx*self.xm_per_pix, 2)
         # Calculate the new radii of curvature
-        curverad = ((1 + (2*fit_cr[0]*np.max(self.ally)*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+        curverad = ((1 + (2*fit_cr[0]*np.max(self.ally)*self.ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+        return curverad
 
-        self.radius_of_curvature = curverad
+    def force_rescan(self):
+        # Check if we need to rescan
+        # using sliding windows
+        if self.failures > MAX_FAILURES:
+            self.failures = 0
+            self.recent_xfitted = []
+            self.bestx = self.allx
+            self.rescanned = True
+            return True
+        self.rescanned = False
+        return False
 
+    def distance_from_camera(self):
+        # Calculate the distance of the line
+        # to the camera
+        return self.xm_per_pix*np.abs(self.camera_width-self.allx[-1])
+
+    def check_parallelism(self, fit):
+        # Check for parallelism by comparing
+        # the first two coefficients
+        mse = ((np.array(self.current_fit[0:2])-np.array(fit[0:2]))**2).mean(axis=0)
+        if mse > MAX_MSE_PARALLEL:
+            return False
+        return True
+
+    def sanity_check(self, other_line):
+        ''' This functions checks for the sanity of
+            the found lines '''
+
+        self.detected = False
+
+        # Calculate MSE for fitx
+        if type(self.bestx) != type(None):
+            mse = ((np.array(self.allx)-np.array(self.bestx))**2).mean(axis=0)
+            if mse > THRESHOLD_MSE:
+                self.failures += 1
+                return False
+
+        # If the camera is too far from the left line comparing,
+        # with the previous image, something is wrong
+        if type(self.line_base_pos) != type(None):
+            if self.distance_from_camera() > self.line_base_pos + MAX_X_DISTANCE:
+                self.failures += 1
+                return False
+        
+        lane_width = self.distance_from_camera() + other_line.distance_from_camera()
+        if (lane_width > MAX_LANE_WIDTH) or (lane_width < MIN_LANE_WIDTH):
+            self.failures += 1
+            return False
+
+        if not self.check_parallelism(other_line.current_fit):
+            self.failures += 1
+            return False
+
+        self.radius_of_curvature = self.calc_radius_of_curvature()
+        self.line_base_pos = self.distance_from_camera()
+        self.detected = True
+        self.failures = 0
+
+        return True
+
+    def update(self, fit, fitx, ploty):
+        ''' Update our line with new data '''
+        self.current_fit = fit
+        self.allx = fitx
+        self.ally = ploty
+
+        # If we are in the first loop
+        # our bestx is our currently fitx
+        if type(self.bestx) == type(None):
+            self.bestx = fitx
+
+        # Slide the most recent XFITTED
+        if len(self.recent_xfitted) > NUMBER_OF_RECENT_XFITTED:
+            self.recent_xfitted = self.recent_xfitted[1:]
+
+        # Update our data
+        self.recent_xfitted.append(self.allx)
+        self.bestx = np.array(self.recent_xfitted).mean(axis=0)
+
+
+# Define our lines
 left_line = Line()
 right_line = Line()
 
 def abs_sobel_thresh(image, orient='x', sobel_kernel=3, thresh=(0, 255)):
     # Calculate directional gradient
-    #sobel = cv2.Sobel(image, cv2.CV_64F, [0,1][orient == 'y'], [1,0][orient == 'x'], ksize=sobel_kernel)
-    sobel = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+    if orient == 'y':
+        sobel = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+    else:
+        sobel = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+
     abs_sobel = np.absolute(sobel)
     scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel))
+
     # Apply threshold
     grad_binary = np.zeros_like(scaled_sobel)
     grad_binary[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
@@ -145,110 +238,64 @@ def camera_calibration(nx,ny,path, visualize = False):
     return mtx, dist
 
 def corners_unwarp(img, nx, ny, mtx, dist):
-    # Pass in your image into this function
-    # Write code to do the following steps
-    # 1) Undistort using mtx and dist
+    # Undistort using mtx and dist
     img = cv2.undistort(img, mtx, dist, None, mtx)
-    # 2) Convert to grayscale
+    # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # 3) Find the chessboard corners
+    # Find the chessboard corners
     ret, corners = cv2.findChessboardCorners(gray, (nx, ny), None)
-    # 4) If corners found:
+    # If corners found:
     if ret == True:
-            # a) draw corners
+            # draw corners
             cv2.drawChessboardCorners(img, (nx, ny), corners, ret)
             
-            # b) define 4 source points src = np.float32([[,],[,],[,],[,]])
-                 #Note: you could pick any four of the detected corners 
-                 # as long as those four corners define a rectangle
-                 #One especially smart way to do this would be to use four well-chosen
-                 # corners that were automatically detected during the undistortion steps
-                 #We recommend using the automatic detection of corners in your code
+            # define 4 source points src
             src = corners[[0,7,40,47]].reshape(4,2)
-            # c) define 4 destination points dst = np.float32([[,],[,],[,],[,]])
+            # define 4 destination points dst
             dst = np.float32([[110,110],[1150,110],[110,850],[1150,850]])
-            # d) use cv2.getPerspectiveTransform() to get M, the transform matrix
+            # get M, the transform matrix
             M = cv2.getPerspectiveTransform(src, dst)
-            # e) use cv2.warpPerspective() to warp your image to a top-down view
+            # warp image to a top-down view
             warped = cv2.warpPerspective(img, M, (img.shape[1],img.shape[0]), flags=cv2.INTER_LINEAR)
     return warped, M
 
-#top_down, perspective_M = corners_unwarp(img, nx, ny, mtx, dist)
-#f, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 9))
-#f.tight_layout()
-#ax1.imshow(img)
-#ax1.set_title('Original Image', fontsize=50)
-#ax2.imshow(top_down)
-#ax2.set_title('Undistorted and Warped Image', fontsize=50)
-#plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
-
-
-def get_s_channel(image):
-    
-    hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-    S = hls[:,:,2]
-
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-
-
-    # Sobel x
-    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0) # Take the derivative in x
-    abs_sobelx = np.absolute(sobelx) # Absolute x derivative to accentuate lines away from horizontal
-    scaled_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
-
-    thresh_min = 40
-    thresh_max = 255
-    sxbinary = np.zeros_like(scaled_sobel)
-    sxbinary[(scaled_sobel >= thresh_min) & (scaled_sobel <= thresh_max)] = 1
-
-    s_thresh_min = 170
-    s_thresh_max = 255
-    s_binary = np.zeros_like(S)
-    s_binary[(S >= s_thresh_min) & (S <= s_thresh_max)] = 1
-
-
-    color_binary = np.dstack(( np.zeros_like(sxbinary), sxbinary, s_binary)) * 255
-
-    combined_binary = np.zeros_like(sxbinary)
-    combined_binary[(s_binary == 1) | (sxbinary == 1)] = 1
-
-
-    #thresh = (90, 255)
-    #binary = np.zeros_like(S)
-    #binary[(S > thresh[0]) & (S <= thresh[1])] = 1
-
-    return combined_binary
-
 def color_and_gradient(img, grad_threshold=(0,255), mag_threshold=(0,255), dir_threshold=(0,255), s_threshold=(170,255), ksize=3, visualize=False):
+
+    # Compute our binary image by applying Sobel and color transformations
 
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
+    # Get Sobel, Magnitude and Direction images with thresholds
     gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, thresh=grad_threshold)
     grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, thresh=grad_threshold)
     mag_binary = mag_thresh(gray, sobel_kernel=ksize, thresh=mag_threshold)
     dir_binary = dir_thresh(gray, sobel_kernel=ksize, thresh=dir_threshold)
 
+    # Combine the images
     combined = np.zeros_like(dir_binary)
     combined[((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))] = 1
 
-
+    # Get our S channel from HLS transformation
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     S = hls[:,:,2]
 
     s_binary = np.zeros_like(S)
     s_binary[(S >= s_threshold[0]) & (S <= s_threshold[1])] = 1
 
+    # Combine with previous results
     combined_binary = np.zeros_like(combined)
     combined_binary[(s_binary == 1) | (combined == 1)] = 1
     
-
+    # If we want to visualize the result
     if visualize:
         plt.imshow(combined_binary, cmap="gray")
+        plt.savefig("./examples/binary.png")
         plt.show()
 
     return combined_binary
 
 def warp_image(img, mtx, dist, src, dst):
+    # Warp the image
 
     M = cv2.getPerspectiveTransform(src, dst)
     Minv = cv2.getPerspectiveTransform(dst, src)
@@ -258,7 +305,9 @@ def warp_image(img, mtx, dist, src, dst):
     return warped, M, Minv
 
 def find_peaks_initial(img, nwindows = 9, margin = 100, visualize = False):
+    # Find the initial line using sliding window
 
+    # Get the histogram of the half the image
     histogram = np.sum(img[img.shape[0]//2:,:], axis=0)
 
     if visualize:
@@ -268,13 +317,10 @@ def find_peaks_initial(img, nwindows = 9, margin = 100, visualize = False):
     out_img = np.dstack((img, img, img))#*255
     out_img = out_img.astype(np.uint8)
 
-
+    # Find the bases of our left and right lines
     midpoint = np.int(histogram.shape[0]/2)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
-
-    # Possible improvement: low pass filter in histogram
-    # to avoid peaks and get more precise results
 
     binary_warped = img
     window_height = np.int(binary_warped.shape[0]/nwindows)
@@ -288,7 +334,8 @@ def find_peaks_initial(img, nwindows = 9, margin = 100, visualize = False):
     rightx_current = rightx_base
 
     # Set minimum number of pixels found to recenter window
-    minpix = 50 
+    #minpix = 50 
+    minpix = 25
 
     # Create empty lists to receive left and right lane pixel indices
     left_lane_inds = []
@@ -337,7 +384,6 @@ def find_peaks_initial(img, nwindows = 9, margin = 100, visualize = False):
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
-
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
@@ -359,6 +405,8 @@ def find_peaks_initial(img, nwindows = 9, margin = 100, visualize = False):
 
 
 def find_peaks(binary_warped, left_fit, right_fit, margin=100, visualize=False):
+    # Find the lines by looking into the margins of
+    # the existing lines
 
     nonzero = binary_warped.nonzero()
     nonzeroy = np.array(nonzero[0])
@@ -438,7 +486,7 @@ def drawing(undist, warped, Minv, left_fitx, right_fitx, ploty):
     cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
+    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
 
     # Combine the result with the original image
     result = cv2.addWeighted(undist, 0.7, newwarp, 0.3, 0)
@@ -446,6 +494,8 @@ def drawing(undist, warped, Minv, left_fitx, right_fitx, ploty):
     return result
 
 def visualize_perspective(img, pts):
+    # Function to help visualize
+    # the images with perspective lines
     vis_img = np.copy(img)
     cv2.line(vis_img, tuple(pts[0]), tuple(pts[1]), (255,0,0), 2)
     cv2.line(vis_img, tuple(pts[1]), tuple(pts[2]), (255,0,0), 2)
@@ -455,14 +505,14 @@ def visualize_perspective(img, pts):
     plt.show()
 
 def process_image(img):
-
+    # The function that will run the pipeline
+    # and will draw our result image
     global left_line
     global right_line
 
+    # Undistort image using the found mtx and dist
+    # values
     img = cv2.undistort(img, mtx, dist, None, mtx)
-
-    # Thresholding
-    #sobel_img = color_and_gradient(img, grad_threshold=(50,100), mag_threshold=(20,140), dir_threshold=(0.3,1.7), ksize=15, visualize=visualize)
 
     # Perspective Transform
     src = np.float32([[150, img.shape[0]],[590, 450],[687, 450],[1140, img.shape[0]]])
@@ -476,60 +526,54 @@ def process_image(img):
     if visualize:
         visualize_perspective(warped, dst)
 
-    warped = color_and_gradient(warped, grad_threshold=(50,100), mag_threshold=(70,100), dir_threshold=(0.9,1.7), s_threshold=(120,255), ksize=15, visualize=visualize)
+    warped = color_and_gradient(warped, grad_threshold=(30,100), mag_threshold=(70,140), dir_threshold=(0.9,1.7), s_threshold=(120,255), ksize=15, visualize=visualize)
 
-    # Finding the lanes
-    if not left_line.detected:
-        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=50)
-        left_line.detected = True
+    # Finding the lanes using sliding window if we need it
+    if left_line.force_rescan() or right_line.force_rescan():
+        print("Buscando com sliding window")
+        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=30)
     else:
         left_fit = left_line.current_fit
         right_fit = right_line.current_fit
-        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=50,visualize=visualize)
+        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=30,visualize=visualize)
+
+    # Update our lines and do the sanity check
+    left_line.update(left_fit, left_fitx, ploty)
+    right_line.update(right_fit, right_fitx, ploty)
+
+    left_line.sanity_check(right_line)
+    right_line.sanity_check(left_line)
 
     # Draw the found lanes
-    img = drawing(img, warped, Minv, left_fitx, right_fitx, ploty)
-
-    left_line.current_fit = left_fit
-    right_line.current_fit = right_fit
-    left_line.allx = left_fitx
-    left_line.ally = ploty
-    left_line.calc_radius_of_curvature()
-    #print(left_line.radius_of_curvature)
+    img = drawing(img, warped, Minv, left_line.bestx, right_line.bestx, ploty)
 
     return img
 
 
 def main():
 
-    global initial_loop
     global mtx
     global dist
     global visualize
 
-    visualize = False
+    visualize = True
 
-    # Camera calibration
+    # Camera calibration to undistort images
     mtx, dist = camera_calibration(9,6,"camera_cal/calibration*.jpg")
 
     # Load image
-    #for i in range(1,5):
-        #img = plt.imread("test_images/test%s.jpg" % i)
-        #img = process_image(img)
-        #plt.imshow(img)
-       # plt.show()
+    for i in range(1,2):
+        img = plt.imread("test_images/straight_lines1.jpg")
+        img = process_image(img)
+        plt.imshow(img)
+        plt.show()
 
-    clip1 = VideoFileClip("project_video.mp4")
-    clip = clip1.fl_image(process_image)
-    clip.write_videofile("test2.mp4")
-
-    # Measuring Curvature
+    #clip1 = VideoFileClip("project_video.mp4")
+    #clip = clip1.fl_image(process_image)
+    #clip.write_videofile("test6.mp4")
 
         
 
 if __name__ == '__main__':
 
     main()
-
-    #img = plt.imread("test_images/straight_lines1.jpg")
-    #detect_lane(img)
