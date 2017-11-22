@@ -11,13 +11,13 @@ import matplotlib.image as mpimg
 import glob
 from moviepy.editor import VideoFileClip
 
-THRESHOLD_MSE = 500
+THRESHOLD_MSE = 1000
 MAX_X_DISTANCE = 0.5
 MAX_MSE_PARALLEL = 0.03
 MAX_FAILURES = 3
 NUMBER_OF_RECENT_XFITTED = 3
-MAX_LANE_WIDTH = 4.0
-MIN_LANE_WIDTH = 3.4
+MAX_LANE_WIDTH = 4.2
+MIN_LANE_WIDTH = 3.6
 
 mtx, dist = None, None
 visualize = False # Set True to see the transformation images
@@ -32,7 +32,8 @@ class Line():
         #average x values of the fitted line over the last n iterations
         self.bestx = None     
         #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None  
+        self.best_fit = None
+        self.fits = []  
         #polynomial coefficients for the most recent fit
         self.current_fit = [np.array([False])]  
         #radius of curvature of the line in some units
@@ -69,8 +70,8 @@ class Line():
         # using sliding windows
         if self.failures > MAX_FAILURES:
             self.failures = 0
-            self.recent_xfitted = []
-            self.bestx = self.allx
+            #self.recent_xfitted = []
+            #self.bestx = self.allx
             self.rescanned = True
             return True
         self.rescanned = False
@@ -89,16 +90,23 @@ class Line():
             return False
         return True
 
-    def sanity_check(self, other_line):
+    def reset_cache(self):
+        self.recent_xfitted = []
+        self.bestx = None
+        self.best_fit = None
+        self.fits = []
+
+    def sanity_check(self, other_line, avoid_mse = False):
         ''' This functions checks for the sanity of
             the found lines '''
 
         self.detected = False
 
         # Calculate MSE for fitx
-        if type(self.bestx) != type(None):
+        if type(self.bestx) != type(None) and not avoid_mse:
             mse = ((np.array(self.allx)-np.array(self.bestx))**2).mean(axis=0)
             if mse > THRESHOLD_MSE:
+                print("Reprovado por MSE")
                 self.failures += 1
                 return False
 
@@ -106,22 +114,30 @@ class Line():
         # with the previous image, something is wrong
         if type(self.line_base_pos) != type(None):
             if self.distance_from_camera() > self.line_base_pos + MAX_X_DISTANCE:
+                print("Reprovado por posição")
                 self.failures += 1
                 return False
         
         lane_width = self.distance_from_camera() + other_line.distance_from_camera()
         if (lane_width > MAX_LANE_WIDTH) or (lane_width < MIN_LANE_WIDTH):
+            print("Reprovado pelo tamanho da pista")
             self.failures += 1
             return False
 
         if not self.check_parallelism(other_line.current_fit):
+            print("Reprovado por paralelismo")
             self.failures += 1
             return False
 
+        self.fits.append(np.array(self.current_fit))
+        self.best_fit = np.array(self.fits).mean(axis=0)
         self.radius_of_curvature = self.calc_radius_of_curvature()
         self.line_base_pos = self.distance_from_camera()
         self.detected = True
         self.failures = 0
+
+        self.recent_xfitted.append(self.allx)
+        self.bestx = np.array(self.recent_xfitted).mean(axis=0)
 
         return True
 
@@ -136,13 +152,16 @@ class Line():
         if type(self.bestx) == type(None):
             self.bestx = fitx
 
+        if type(self.best_fit) == type(None): 
+            self.best_fit = fit
+
         # Slide the most recent XFITTED
         if len(self.recent_xfitted) > NUMBER_OF_RECENT_XFITTED:
             self.recent_xfitted = self.recent_xfitted[1:]
 
         # Update our data
-        self.recent_xfitted.append(self.allx)
-        self.bestx = np.array(self.recent_xfitted).mean(axis=0)
+        #self.recent_xfitted.append(self.allx)
+        #self.bestx = np.array(self.recent_xfitted).mean(axis=0)
 
 
 # Define our lines
@@ -266,7 +285,7 @@ def color_and_gradient(img, grad_threshold=(0,255), mag_threshold=(0,255), dir_t
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     # Get Sobel, Magnitude and Direction images with thresholds
-    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, thresh=grad_threshold)
+    gradx = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, thresh=grad_threshold)
     grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, thresh=grad_threshold)
     mag_binary = mag_thresh(gray, sobel_kernel=ksize, thresh=mag_threshold)
     dir_binary = dir_thresh(gray, sobel_kernel=ksize, thresh=dir_threshold)
@@ -491,6 +510,10 @@ def drawing(undist, warped, Minv, left_fitx, right_fitx, ploty):
     # Combine the result with the original image
     result = cv2.addWeighted(undist, 0.7, newwarp, 0.3, 0)
 
+    if visualize:
+        plt.imshow(result)
+        plt.show()
+
     return result
 
 def visualize_perspective(img, pts):
@@ -515,7 +538,7 @@ def process_image(img):
     img = cv2.undistort(img, mtx, dist, None, mtx)
 
     # Perspective Transform
-    src = np.float32([[150, img.shape[0]],[590, 450],[687, 450],[1140, img.shape[0]]])
+    src = np.float32([[150, img.shape[0]],[590, 450],[690, 450],[1140, img.shape[0]]])
     dst = np.float32([[300, img.shape[0]],[300, 0],[1000, 0],[1000, img.shape[0]]])
     
     if visualize:
@@ -526,26 +549,39 @@ def process_image(img):
     if visualize:
         visualize_perspective(warped, dst)
 
-    warped = color_and_gradient(warped, grad_threshold=(50,100), mag_threshold=(70,100), dir_threshold=(0.9,1.7), s_threshold=(80,255), ksize=15, visualize=visualize)
+    warped = color_and_gradient(warped, grad_threshold=(30,60), mag_threshold=(230,240), dir_threshold=(0.9,1.7), s_threshold=(135,255), ksize=7, visualize=visualize)
 
     # Finding the lanes using sliding window if we need it
     if left_line.force_rescan() or right_line.force_rescan():
         print("Buscando com sliding window")
-        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=30)
+        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks_initial(warped, visualize=visualize,margin=60)
+        # Update our lines and do the sanity check
+        left_line.update(left_fit, left_fitx, ploty)
+        right_line.update(right_fit, right_fitx, ploty)
+        if left_line.sanity_check(right_line, avoid_mse = True) and right_line.sanity_check(left_line, avoid_mse = True):
+            left_line.reset_cache()
+            right_line.reset_cache()
+            left_line.update(left_fit, left_fitx, ploty)
+            right_line.update(right_fit, right_fitx, ploty)
     else:
-        left_fit = left_line.current_fit
-        right_fit = right_line.current_fit
-        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=30,visualize=visualize)
+        #left_fit = left_line.current_fit
+        #right_fit = right_line.current_fit
+        left_fit = left_line.best_fit
+        right_fit = right_line.best_fit
+        #print(left_fit)
+        #print(right_fit)
+        warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=60,visualize=visualize)
 
-    # Update our lines and do the sanity check
-    left_line.update(left_fit, left_fitx, ploty)
-    right_line.update(right_fit, right_fitx, ploty)
+        # Update our lines and do the sanity check
+        left_line.update(left_fit, left_fitx, ploty)
+        right_line.update(right_fit, right_fitx, ploty)
 
-    left_line.sanity_check(right_line)
-    right_line.sanity_check(left_line)
+        left_line.sanity_check(right_line)
+        right_line.sanity_check(left_line)
 
     # Draw the found lanes
-    img = drawing(img, warped, Minv, left_line.bestx, right_line.bestx, ploty)
+    if type(left_line.bestx) != type(None) and type(right_line.bestx) != type(None):
+        img = drawing(img, warped, Minv, left_line.bestx, right_line.bestx, ploty)
 
     return img
 
@@ -563,12 +599,12 @@ def main():
 
     # Load image
     #for i in range(1,2):
-        #img = plt.imread("test_images/test%s.jpg" % i)
+        #img = plt.imread("test_images/straight_lines%s.jpg" % i)
         #img = process_image(img)
         #plt.imshow(img)
         #plt.show()
 
-    clip1 = VideoFileClip("project_video.mp4")
+    clip1 = VideoFileClip("project_video.mp4").subclip(0,45)
     clip = clip1.fl_image(process_image)
     clip.write_videofile("test6.mp4")
 
