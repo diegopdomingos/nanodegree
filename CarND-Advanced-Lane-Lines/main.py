@@ -165,10 +165,6 @@ class Line():
         if len(self.recent_xfitted) > NUMBER_OF_RECENT_XFITTED:
             self.recent_xfitted = self.recent_xfitted[1:]
 
-        # Update our data
-        #self.recent_xfitted.append(self.allx)
-        #self.bestx = np.array(self.recent_xfitted).mean(axis=0)
-
 
 # Define our lines
 left_line = Line()
@@ -535,11 +531,13 @@ def visualize_perspective(img, pts):
 
 
 def putInfo(img, left_line, right_line):
+    # This function puts into an image the info about radius of curvature
+    # and distance in lane
     rad_curv = "RoC: %.2f" % right_line.calc_radius_of_curvature()
     cv2.putText(img,rad_curv,(640,640),fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 2, 
                 color = (255, 255, 255))
 
-    pos_lane = "Position: %s" %  left_line.get_x_position() #((left_line.get_x_position() + right_line.get_x_position())/2 - 640)*left_line.xm_per_pix
+    pos_lane = "Position: %s" %  (((left_line.get_x_position() + right_line.get_x_position())/2 - 640)*left_line.xm_per_pix)
     
     cv2.putText(img,pos_lane,(640,680),fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 2, 
                 color = (255, 255, 255))
@@ -579,15 +577,13 @@ def process_image(img):
         if left_line.sanity_check(right_line, avoid_mse = True) and right_line.sanity_check(left_line, avoid_mse = True):
             left_line.reset_cache()
             right_line.reset_cache()
+            # Update again, because we did a reset_cache
+            # TODO: improve this algorithm!
             left_line.update(left_fit, left_fitx, ploty)
             right_line.update(right_fit, right_fitx, ploty)
     else:
-        #left_fit = left_line.current_fit
-        #right_fit = right_line.current_fit
         left_fit = left_line.best_fit
         right_fit = right_line.best_fit
-        #print(left_fit)
-        #print(right_fit)
         warped, left_fit, right_fit, left_fitx, right_fitx, ploty = find_peaks(warped, left_fit, right_fit,margin=60,visualize=visualize)
 
         # Update our lines and do the sanity check
@@ -624,7 +620,7 @@ def main():
         #plt.imshow(img)
         #plt.show()
 
-    clip1 = VideoFileClip("project_video.mp4").subclip(0,2)
+    clip1 = VideoFileClip("project_video.mp4").subclip(0,44)
     clip = clip1.fl_image(process_image)
     clip.write_videofile("test6.mp4")
 

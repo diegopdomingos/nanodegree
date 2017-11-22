@@ -56,19 +56,19 @@ To demonstrate this step, I will describe how I apply the distortion correction 
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 262 through 294 (colors_and_gradient()) in `main.py`).  Here's an example of my output for this step. 
+I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 283 through 316 (color_and_gradient()) in `main.py`).  Here's an example of my output for this step. 
 
 ![alt text][image3]
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warp_image()`, which appears in lines 296 through 304 in the file `main.py`.  The `warp_image()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+The code for my perspective transform includes a function called `warp_image()`, which appears in lines 318 through 326 in the file `main.py`.  The `warp_image()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
 
 ```python
 src = np.float32(
     [[150, img.shape[0]],
     [590, 450],
-    [687, 450],
+    [690, 450],
     [1140, img.shape[0]]])
 dst = np.float32(
     [[300, img.shape[0]],
@@ -83,7 +83,7 @@ This resulted in the following source and destination points:
 |:-------------:|:-------------:| 
 | 150, 720      | 300, 720        | 
 | 590, 450      | 300, 0      |
-| 687, 450     | 1000, 0      |
+| 690, 450     | 1000, 0      |
 | 1140, 720      | 1000, 720        |
 
 I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
@@ -101,11 +101,11 @@ Then I did a polyfit() function that fit my lane lines with a 2nd order polynomi
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines 60 through 65 in my code in `main.py`
+I did this in lines 61 through 66 in my code in `main.py`
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines 470 through 493 in my code in `main.py` in the function `drawing()`.  Here is an example of my result on a test image:
+I implemented this step in lines 492 through 519 in my code in `main.py` in the function `drawing()`.  Here is an example of my result on a test image:
 
 ![alt text][image6]
 
@@ -140,4 +140,6 @@ Because the road has a lot of noise, there are sometimes that we miss the lines 
 If we get enough failures in this sanity (3 times), we start by searching the lines with sliding window again.
 
 There are some improvement that we can do to make it more robust, for example, tuning the parameters to get better results with our binary images. Yet, we can use more conditions when our sliding windows don't find enough blocks of pixels, causing a bad fit.
+
+Another improvement would be a predictive system to draw the missed lines based on the previous lines.
   
