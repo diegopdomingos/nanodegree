@@ -17,7 +17,7 @@ MAX_MSE_PARALLEL = 0.03
 MAX_FAILURES = 3
 NUMBER_OF_RECENT_XFITTED = 3
 MAX_LANE_WIDTH = 4.2
-MIN_LANE_WIDTH = 3.6
+MIN_LANE_WIDTH = 3.65
 
 mtx, dist = None, None
 visualize = False # Set True to see the transformation images
@@ -60,7 +60,7 @@ class Line():
 
     def calc_radius_of_curvature(self):
         # Fit new polynomials to x,y in world space
-        fit_cr = np.polyfit(self.ally*self.ym_per_pix, self.allx*self.xm_per_pix, 2)
+        fit_cr = np.polyfit(self.ally*self.ym_per_pix, self.bestx*self.xm_per_pix, 2)
         # Calculate the new radii of curvature
         curverad = ((1 + (2*fit_cr[0]*np.max(self.ally)*self.ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
         return curverad
@@ -79,8 +79,14 @@ class Line():
 
     def distance_from_camera(self):
         # Calculate the distance of the line
-        # to the camera
+        # to the camera in before sanity check
         return self.xm_per_pix*np.abs(self.camera_width-self.allx[-1])
+
+    def get_x_position(self):
+        # Calculate the distance of the line
+        # to the camera in after sanity check
+        return self.bestx[-1]
+
 
     def check_parallelism(self, fit):
         # Check for parallelism by comparing
@@ -527,6 +533,18 @@ def visualize_perspective(img, pts):
     plt.imshow(vis_img, cmap="gray")
     plt.show()
 
+
+def putInfo(img, left_line, right_line):
+    rad_curv = "RoC: %.2f" % right_line.calc_radius_of_curvature()
+    cv2.putText(img,rad_curv,(640,640),fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 2, 
+                color = (255, 255, 255))
+
+    pos_lane = "Position: %s" %  left_line.get_x_position() #((left_line.get_x_position() + right_line.get_x_position())/2 - 640)*left_line.xm_per_pix
+    
+    cv2.putText(img,pos_lane,(640,680),fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 2, 
+                color = (255, 255, 255))
+    return img
+
 def process_image(img):
     # The function that will run the pipeline
     # and will draw our result image
@@ -583,6 +601,8 @@ def process_image(img):
     if type(left_line.bestx) != type(None) and type(right_line.bestx) != type(None):
         img = drawing(img, warped, Minv, left_line.bestx, right_line.bestx, ploty)
 
+    img = putInfo(img, left_line, right_line)    
+
     return img
 
 
@@ -604,7 +624,7 @@ def main():
         #plt.imshow(img)
         #plt.show()
 
-    clip1 = VideoFileClip("project_video.mp4").subclip(0,45)
+    clip1 = VideoFileClip("project_video.mp4").subclip(0,2)
     clip = clip1.fl_image(process_image)
     clip.write_videofile("test6.mp4")
 
