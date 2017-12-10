@@ -28,6 +28,7 @@ hog_feat = True # HOG features on or off
 y_start_stop = [400, 650] # Min and max in y to search in slide_window()
 x_start_stop = [None, None]
 heat_map_threshold = 3
+heatmap_history_num = 3
 svc = None
 X_scaler = None
 
@@ -227,6 +228,83 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
     #9) Return concatenated array of features
     return np.concatenate(img_features)
 
+def convert_color(img, conv='RGB2YCrCb'):
+    if conv == 'RGB2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    if conv == 'BGR2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    if conv == 'RGB2LUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    if conv == 'RGB2YUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+
+def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
+    
+    draw_img = np.copy(img)
+    #img = img.astype(np.float32)/255
+    on_windows = []
+    img_tosearch = img[ystart:ystop,:,:]
+    ctrans_tosearch = convert_color(img_tosearch, conv='RGB2YUV')
+    if scale != 1:
+        imshape = ctrans_tosearch.shape
+        ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
+        
+    ch1 = ctrans_tosearch[:,:,0]
+    ch2 = ctrans_tosearch[:,:,1]
+    ch3 = ctrans_tosearch[:,:,2]
+
+    # Define blocks and steps as above
+    nxblocks = (ch1.shape[1] // pix_per_cell) - cell_per_block + 1
+    nyblocks = (ch1.shape[0] // pix_per_cell) - cell_per_block + 1 
+    nfeat_per_block = orient*cell_per_block**2
+    
+    # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
+    window = 64
+    nblocks_per_window = (window // pix_per_cell) - cell_per_block + 1
+    cells_per_step = 2  # Instead of overlap, define how many cells to step
+    nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+    nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+    
+    # Compute individual channel HOG features for the entire image
+    hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    
+    for xb in range(nxsteps):
+        for yb in range(nysteps):
+            ypos = yb*cells_per_step
+            xpos = xb*cells_per_step
+            # Extract HOG for this patch
+            hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+            hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+            hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+            hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+
+            xleft = xpos*pix_per_cell
+            ytop = ypos*pix_per_cell
+
+            # Extract the image patch
+            subimg = cv2.resize(ctrans_tosearch[ytop:ytop+window, xleft:xleft+window], (64,64))
+          
+            # Get color features
+            spatial_features = bin_spatial(subimg, size=spatial_size)
+            hist_features = color_hist(subimg, nbins=hist_bins)
+
+            # Scale features and make a prediction
+            test_features = X_scaler.transform(np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))    
+            #test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))    
+            test_prediction = svc.predict(test_features)
+            
+            if test_prediction == 1:
+                xbox_left = np.int(xleft*scale)
+                ytop_draw = np.int(ytop*scale)
+                win_draw = np.int(window*scale)
+                on_windows.append(((xbox_left, ytop_draw+ystart), (xbox_left+win_draw, ytop_draw+win_draw+ystart)))
+                #cv2.rectangle(draw_img,(xbox_left, ytop_draw+ystart),(xbox_left+win_draw,ytop_draw+win_draw+ystart),(0,0,255),6) 
+                
+    return on_windows
+
+
 # Define a function you will pass an image 
 # and the list of windows to be searched (output of slide_windows())
 def search_windows(img, windows, clf, scaler, color_space='RGB', 
@@ -306,25 +384,30 @@ def process_image(image):
 
 	image = image.astype(np.float32)/255
 
-	settings = [(64,0.5),(90,0.5),(110,0.6),(150,0.6),(180,0.6),(210,0.8),(250,0.8)]
 
-	all_windows = []
+	#settings = [(64,0.5),(90,0.5),(110,0.6),(150,0.6),(180,0.6),(210,0.8),(250,0.8)]
 
-	for setting in settings:
+	#all_windows = []
 
-		xy_window = (setting[0],setting[0])
-		xy_overlap = (setting[1],setting[1])
+	#for setting in settings:
 
-		windows = slide_window(image, x_start_stop=x_start_stop, y_start_stop=y_start_stop, 
-				    xy_window=xy_window, xy_overlap=xy_overlap)
+		#xy_window = (setting[0],setting[0])
+		#xy_overlap = (setting[1],setting[1])
 
-		hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space, 
-				        spatial_size=spatial_size, hist_bins=hist_bins, 
-				        orient=orient, pix_per_cell=pix_per_cell, 
-				        cell_per_block=cell_per_block, 
-				        hog_channel=hog_channel, spatial_feat=spatial_feat, 
-				        hist_feat=hist_feat, hog_feat=hog_feat)                       
-		all_windows += hot_windows
+		#windows = slide_window(image, x_start_stop=x_start_stop, y_start_stop=y_start_stop, 
+				    #xy_window=xy_window, xy_overlap=xy_overlap)
+
+		#hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space, 
+				        #spatial_size=spatial_size, hist_bins=hist_bins, 
+				        #orient=orient, pix_per_cell=pix_per_cell, 
+				        #cell_per_block=cell_per_block, 
+				        #hog_channel=hog_channel, spatial_feat=spatial_feat, 
+				        #hist_feat=hist_feat, hog_feat=hog_feat)       
+	all_windows = find_cars(image, y_start_stop[0], y_start_stop[1], 1, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
+	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 1.5, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
+	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 2, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
+	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 3, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
+		#all_windows += hot_windows
 
 	window_img = draw_boxes(draw_image, all_windows, color=(0, 0, 255), thick=6)                    
 
@@ -336,22 +419,24 @@ def process_image(image):
 	heatmap = add_heat(heatmap, all_windows)
 
 	
-	heatmap_history.append(heatmap)
+	#heatmap_history.append(heatmap)
+	heatmap_history.append(all_windows)
 
-	if len(heatmap_history) > 5:
-		heatmap_history = heatmap_history[1:]
+	if len(heatmap_history) > heatmap_history_num:
+		heatmap_history = heatmap_history[-heatmap_history_num:]
+
 
 	for hm in heatmap_history:
-		heatmap += hm
+		#heatmap += hm
+		heatmap = add_heat(heatmap, hm)
 
 	#plt.imshow(heatmap)
 	#plt.show()
-
-	if len(heatmap_history) < 4:
+	#print(len(heatmap_history))
+	if len(heatmap_history) < heatmap_history_num:
 		heatmap = apply_threshold(heatmap, 1)
 	else:
 		heatmap = apply_threshold(heatmap, heat_map_threshold)
-
 
 	labels = label(heatmap)
 
@@ -463,7 +548,7 @@ def main():
 	#image = mpimg.imread('./test_images/test2.jpg')
 	#draw_image = np.copy(image)
 
-	clip1 = VideoFileClip("test_video.mp4").subclip(0,1)
+	clip1 = VideoFileClip("project_video.mp4").subclip(10,50)
 	clip = clip1.fl_image(process_image)
 	clip.write_videofile("%s.mp4" % output_video_name )
 
@@ -479,9 +564,10 @@ def main():
 		    hist_feat=%s\n \
 		    hog_feat=%s\n \
 		    y_start_stop=%s \n \
-		    heat_map_threshold=%s" % (color_space,orient,pix_per_cell,cell_per_block,\
+		    heat_map_threshold=%s\n \
+		    heatmap_history_num=%s" % (color_space,orient,pix_per_cell,cell_per_block,\
 					hog_channel,spatial_size,hist_bins,spatial_feat,hist_feat,\
-					hog_feat,y_start_stop,heat_map_threshold)
+					hog_feat,y_start_stop,heat_map_threshold,heatmap_history_num)
 	out_data.write(out_info)
 	out_data.close()
 
