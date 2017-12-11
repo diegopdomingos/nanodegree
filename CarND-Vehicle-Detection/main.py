@@ -14,7 +14,7 @@ import pickle
 from moviepy.editor import VideoFileClip
 from datetime import datetime
 
-### TODO: Tweak these parameters and see how the results change.
+
 color_space = 'YUV' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations
 pix_per_cell = 8 # HOG pixels per cell
@@ -26,11 +26,13 @@ spatial_feat = True # Spatial features on or off
 hist_feat = True # Histogram features on or off
 hog_feat = True # HOG features on or off
 y_start_stop = [400, 650] # Min and max in y to search in slide_window()
-x_start_stop = [None, None]
-heat_map_threshold = 3
-heatmap_history_num = 3
+x_start_stop = [None, None] # Min and max in x to search in slide_window()
+heat_map_threshold = 3 # threshold to consider a bbox a car
+heatmap_history_num = 6 # how many heatmaps we would like to store
 svc = None
 X_scaler = None
+heatmap = None	# The heatmap
+heatmap_history = [] # the heatmap history list
 
 # Define a function to return HOG features and visualization
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, 
@@ -306,40 +308,6 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, ce
     return on_windows
 
 
-# Define a function you will pass an image 
-# and the list of windows to be searched (output of slide_windows())
-def search_windows(img, windows, clf, scaler, color_space='RGB', 
-                    spatial_size=(32, 32), hist_bins=32, 
-                    hist_range=(0, 256), orient=9, 
-                    pix_per_cell=8, cell_per_block=2, 
-                    hog_channel=0, spatial_feat=True, 
-                    hist_feat=True, hog_feat=True):
-
-    #1) Create an empty list to receive positive detection windows
-    on_windows = []
-
-    #2) Iterate over all windows in the list
-    for window in windows:
-        #3) Extract the test window from original image
-        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))      
-        #4) Extract features for that window using single_img_features()
-        features = single_img_features(test_img, color_space=color_space, 
-                            spatial_size=spatial_size, hist_bins=hist_bins, 
-                            orient=orient, pix_per_cell=pix_per_cell, 
-                            cell_per_block=cell_per_block, 
-                            hog_channel=hog_channel, spatial_feat=spatial_feat, 
-                            hist_feat=hist_feat, hog_feat=hog_feat)
-        #5) Scale extracted features to be fed to classifier
-        test_features = scaler.transform(np.array(features).reshape(1, -1))
-        #6) Predict using your classifier
-        prediction = clf.predict(test_features)
-        #7) If positive (prediction == 1) then save the window
-        if prediction == 1:
-            on_windows.append(window)
-    #8) Return windows for positive detections
-    return on_windows
-
-
 def add_heat(heatmap, bbox_list):
     # Iterate through list of bboxes
     for box in bbox_list:
@@ -371,57 +339,36 @@ def draw_labeled_bboxes(img, labels):
     # Return the image
     return img
 
-heatmap = None
-heatmap_history = []
 
 def process_image(image):
 
 	global heatmap_history
 
-	#if type(heatmap) == type(None):
-		#heatmap = np.zeros_like(image[:,:,0]).astype(np.float)
-
 	draw_image = np.copy(image)
 
 	image = image.astype(np.float32)/255
-
-
-	#settings = [(64,0.5),(90,0.5),(110,0.6),(150,0.6),(180,0.6),(210,0.8),(250,0.8)]
-
-	#all_windows = []
-
-	#for setting in settings:
-
-		#xy_window = (setting[0],setting[0])
-		#xy_overlap = (setting[1],setting[1])
-
-		#windows = slide_window(image, x_start_stop=x_start_stop, y_start_stop=y_start_stop, 
-				    #xy_window=xy_window, xy_overlap=xy_overlap)
-
-		#hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space, 
-				        #spatial_size=spatial_size, hist_bins=hist_bins, 
-				        #orient=orient, pix_per_cell=pix_per_cell, 
-				        #cell_per_block=cell_per_block, 
-				        #hog_channel=hog_channel, spatial_feat=spatial_feat, 
-				        #hist_feat=hist_feat, hog_feat=hog_feat)       
+      
 	all_windows = find_cars(image, y_start_stop[0], y_start_stop[1], 1, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=2)
 	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 1.5, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=2)
 	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 2, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=1)
 	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 3, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=1)
-	#all_windows = find_cars(image, y_start_stop[0], y_start_stop[1], 4, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=1)
-		#all_windows += hot_windows
 
+	# Uncomment the following lines if you want to see
+	# all windows found by our find_cars function
 	window_img = draw_boxes(draw_image, all_windows, color=(0, 0, 255), thick=6)                    
-
-	#plt.imshow(window_img)
-	#plt.show()
+	plt.imshow(window_img)
+	plt.show()
 
 	heatmap = np.zeros_like(image[:,:,0]).astype(np.float)
 
 	heatmap = add_heat(heatmap, all_windows)
 
 	
-	#heatmap_history.append(heatmap)
+	# Now, we add this heatmap to our heatmap_history list
+	# Then, we check which boxes are common to all
+	# past heatmaps
+	# Because we add our heatmap on another, we need to setup
+	# a threshold of confiance of our measure
 	heatmap_history.append(all_windows)
 
 	if len(heatmap_history) > heatmap_history_num:
@@ -429,12 +376,11 @@ def process_image(image):
 
 
 	for hm in heatmap_history:
-		#heatmap += hm
 		heatmap = add_heat(heatmap, hm)
 
-	#plt.imshow(heatmap)
-	#plt.show()
-	#print(len(heatmap_history))
+	plt.imshow(heatmap)
+	plt.show()
+
 	if len(heatmap_history) < heatmap_history_num:
 		heatmap = apply_threshold(heatmap, 1)
 	else:
@@ -443,16 +389,19 @@ def process_image(image):
 	labels = label(heatmap)
 
 	#print(labels[1], 'cars found')
-	#plt.imshow(labels[0], cmap='gray')
-	#plt.show()
+	plt.imshow(labels[0], cmap='gray')
+	plt.show()
+
+	# If we have cars on our image, lets draw the boxes
 	if labels[1] > 0:
 		window_img = draw_labeled_bboxes(draw_image, labels)
 	else:
 		window_img = draw_image
 
 	plt.imshow(window_img)
-	#plt.show(block=False)
-	plt.pause(0.1)
+	plt.show()
+	#plt.pause(0.1)
+
 	return window_img
 
 def train_model(output_video_name):
@@ -498,6 +447,7 @@ def train_model(output_video_name):
 	print('Using:',orient,'orientations',pix_per_cell,
 	    'pixels per cell and', cell_per_block,'cells per block')
 	print('Feature vector length:', len(X_train[0]))
+
 	# Use a linear SVC
 
 	#svc = LinearSVC()
@@ -533,24 +483,22 @@ def main():
 	
 	output_video_name = "%s%s-%s-%s-%s" % (datetime.today().month, datetime.today().day, datetime.today().hour, datetime.today().minute,datetime.today().second)
 
-	
-	plt.ion()
+	#plt.ion()
+
 	if TRAIN:
 		svc, X_scaler = train_model(output_video_name)
 	else:
-		model_file = open("model.p","rb")
-		scaler_file = open("scaler.p","rb")
+		model_file = open("model.p","rb") # Hardcoded model name
+		scaler_file = open("scaler.p","rb") # Hardcoded scaler name
 		svc = pickle.load(model_file)
 		X_scaler = pickle.load(scaler_file)
 		model_file.close()
 		scaler_file.close()
 
-	#exit()
+	#image = mpimg.imread('./test_images/test1.jpg')
+	#process_image(image)
 
-	#image = mpimg.imread('./test_images/test2.jpg')
-	#draw_image = np.copy(image)
-
-	clip1 = VideoFileClip("project_video.mp4")#.subclip(45,50)
+	clip1 = VideoFileClip("project_video.mp4").subclip(39,50)
 	clip = clip1.fl_image(process_image)
 	clip.write_videofile("%s.mp4" % output_video_name )
 
@@ -572,15 +520,6 @@ def main():
 					hog_feat,y_start_stop,heat_map_threshold,heatmap_history_num)
 	out_data.write(out_info)
 	out_data.close()
-
-	# Uncomment the following line if you extracted training
-	# data from .png images (scaled 0 to 1 by mpimg) and the
-	# image you are searching is a .jpg (scaled 0 to 255)
-	#image = image.astype(np.float32)/255
-
-
-#plt.imshow(window_img)
-#plt.show()
 
 if __name__ == '__main__':
 	main()
