@@ -238,17 +238,18 @@ def convert_color(img, conv='RGB2YCrCb'):
     if conv == 'RGB2YUV':
         return cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
 
-def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
+def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=2):
     
     draw_img = np.copy(img)
     #img = img.astype(np.float32)/255
     on_windows = []
-    img_tosearch = img[ystart:ystop,:,:]
+    img_tosearch = np.copy(img[ystart:ystop,:,:])
+ 
     ctrans_tosearch = convert_color(img_tosearch, conv='RGB2YUV')
     if scale != 1:
         imshape = ctrans_tosearch.shape
         ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
-        
+
     ch1 = ctrans_tosearch[:,:,0]
     ch2 = ctrans_tosearch[:,:,1]
     ch3 = ctrans_tosearch[:,:,2]
@@ -261,7 +262,7 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, ce
     # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
     window = 64
     nblocks_per_window = (window // pix_per_cell) - cell_per_block + 1
-    cells_per_step = 2  # Instead of overlap, define how many cells to step
+    cells_per_step = step  # Instead of overlap, define how many cells to step
     nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
     nysteps = (nyblocks - nblocks_per_window) // cells_per_step
     
@@ -403,10 +404,11 @@ def process_image(image):
 				        #cell_per_block=cell_per_block, 
 				        #hog_channel=hog_channel, spatial_feat=spatial_feat, 
 				        #hist_feat=hist_feat, hog_feat=hog_feat)       
-	all_windows = find_cars(image, y_start_stop[0], y_start_stop[1], 1, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
-	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 1.5, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
-	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 2, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
-	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 3, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins)
+	all_windows = find_cars(image, y_start_stop[0], y_start_stop[1], 1, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=2)
+	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 1.5, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=2)
+	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 2, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=1)
+	all_windows += find_cars(image, y_start_stop[0], y_start_stop[1], 3, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=1)
+	#all_windows = find_cars(image, y_start_stop[0], y_start_stop[1], 4, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins,step=1)
 		#all_windows += hot_windows
 
 	window_img = draw_boxes(draw_image, all_windows, color=(0, 0, 255), thick=6)                    
@@ -448,9 +450,9 @@ def process_image(image):
 	else:
 		window_img = draw_image
 
-	#plt.imshow(window_img)
-	#plt.show()
-
+	plt.imshow(window_img)
+	#plt.show(block=False)
+	plt.pause(0.1)
 	return window_img
 
 def train_model(output_video_name):
@@ -532,7 +534,7 @@ def main():
 	output_video_name = "%s%s-%s-%s-%s" % (datetime.today().month, datetime.today().day, datetime.today().hour, datetime.today().minute,datetime.today().second)
 
 	
-
+	plt.ion()
 	if TRAIN:
 		svc, X_scaler = train_model(output_video_name)
 	else:
@@ -548,7 +550,7 @@ def main():
 	#image = mpimg.imread('./test_images/test2.jpg')
 	#draw_image = np.copy(image)
 
-	clip1 = VideoFileClip("project_video.mp4").subclip(10,50)
+	clip1 = VideoFileClip("project_video.mp4")#.subclip(45,50)
 	clip = clip1.fl_image(process_image)
 	clip.write_videofile("%s.mp4" % output_video_name )
 
