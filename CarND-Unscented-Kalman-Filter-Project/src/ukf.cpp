@@ -70,8 +70,17 @@ UKF::UKF() {
 
   init = false;
 
+  // Save the first timestamp
   previous_timestamp_ = 1477010443050000;
 
+  // Initialize the weights_ vector
+  weights_ = VectorXd(2*n_aug_+1);
+  double weight_0 = lambda_/(lambda_+n_aug_);
+  weights_(0) = weight_0;
+  for (int i=1; i<2*n_aug_+1; i++) {
+    double weight = 0.5/(n_aug_+lambda_);
+    weights_(i) = weight;
+  }
 }
 
 UKF::~UKF() {}
@@ -220,15 +229,10 @@ void UKF::Prediction(double delta_t) {
  
   cout<<"Xsig_pred_="<<Xsig_pred_<<endl;
   
-  //set weights
-  weights(0) = (lambda_/(lambda_+n_aug_));
-  for(int i=1;i<2*n_aug_+1;i++)
-    weights(i) = (1/(2*(lambda_+n_aug_)));
-
   x_.fill(0.0);  
   //predict state mean
   for(int i=0;i<2*n_aug_+1;i++){
-    x_ += weights(i)*Xsig_pred_.col(i);
+    x_ += weights_(i)*Xsig_pred_.col(i);
   }
 
   cout<<"x_="<<x_<<endl;
@@ -239,7 +243,7 @@ void UKF::Prediction(double delta_t) {
       VectorXd x_diff = Xsig_pred_.col(i)-x_;
       while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
       while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
-      P_ += weights(i)*(x_diff*x_diff.transpose());
+      P_ += weights_(i)*(x_diff*x_diff.transpose());
   }
 
   cout<<"P_"<<P_<<endl;
@@ -259,6 +263,9 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+
+  cout<<"Starting UpdateLidar()\n";
+
 }
 
 /**
@@ -283,23 +290,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //mean predicted measurement
   VectorXd z_pred = VectorXd(n_z_);
  
-  //raw measurment by radar
-  VectorXd z = meas_package.raw_measurements_;
- 
-  //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z_,n_z_);
-
-
-  //set vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
-   double weight_0 = lambda_/(lambda_+n_aug_);
-  weights_(0) = weight_0;
-  for (int i=1; i<2*n_aug_+1; i++) {  
-    double weight = 0.5/(n_aug_+lambda_);
-    weights_(i) = weight;
-  }
-
-
   //transform sigma points into measurement space
   for(int i=0;i<2*n_aug_+1;i++){
       Zsig(0,i)=sqrt(Xsig_pred_(0,i)*Xsig_pred_(0,i)+Xsig_pred_(1,i)*Xsig_pred_(1,i));
@@ -312,69 +302,21 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   //calculate mean predicted measurement
   for(int i=0;i<2*n_aug_+1;i++){
-      z_pred(0) += weights(i)*Zsig(0,i);
-      z_pred(1) += weights(i)*Zsig(1,i);
-      z_pred(2) += weights(i)*Zsig(2,i);
+      z_pred(0) += weights_(i)*Zsig(0,i);
+      z_pred(1) += weights_(i)*Zsig(1,i);
+      z_pred(2) += weights_(i)*Zsig(2,i);
   }
   
 
   cout<<"z_pred="<<z_pred<<endl;
 
-  //calculate innovation covariance matrix S
-  for(int i=0;i<2*n_aug_+1;i++){
-      S += weights(i)*(Zsig.col(i)-z_pred)*(Zsig.col(i)-z_pred).transpose();
-  }
-  S(0,0) += std_radr_*std_radr_;
-  S(1,1) += std_radphi_*std_radphi_;
-  S(2,2) += std_radrd_*std_radrd_;
+  UpdateUKF(meas_package, Zsig);
 
-
-  cout<<"S="<<S<<endl;
-  //create matrix for cross correlation Tc
-  MatrixXd Tc = MatrixXd(n_x_, n_z_);
-
-  //calculate cross correlation matrix
-  Tc.fill(0.0);
-  for(int i=0;i<2*n_aug_+1;i++){
-    //residual
-    VectorXd z_diff = Zsig.col(i) - z_pred;
-    //angle normalization
-    while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
-    while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
-
-    // state difference
-    VectorXd x_diff = Xsig_pred_.col(i) - x_;
-    //angle normalization
-    while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
-    while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
-
-    Tc+= weights(i) * x_diff * z_diff.transpose();
-  }
-  //calculate Kalman gain K;
-  MatrixXd K = MatrixXd(n_x_, n_z_);
-  cout<<"Tc:"<<Tc<<endl;
-  cout<<"S_inv"<<S.inverse()<<endl;
-  K = Tc*S.inverse();
-  
-  cout<<"A\n";
-  cout<<"z size:"<<z.size()<<endl;
-  //update state mean and covariance matrix
-  VectorXd z_diff = z-z_pred;
-  while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
-  while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
-  cout<<"A\n";
-  cout<<"Before update\n";
-  cout<<"x_"<<x_<<endl;
-  cout<<"K"<<K<<endl;
-  cout<<"z_diff"<<z_diff<<endl;
-  x_ = x_ + K*z_diff;
-  P_ = P_ - K*S*K.transpose();
-  cout<<"After update\n";
-  cout<<"x_"<<x_<<endl;
-  cout<<"P_"<<P_<<endl;
 }
 
 void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig){
+
+  cout<<"Starting UpdateUKF\n";
 
   //mean predicted measurement
   VectorXd z_pred = VectorXd(n_z_);
@@ -423,7 +365,7 @@ void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig){
     while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
-    Tc+= weights(i) * x_diff * z_diff.transpose();
+    Tc+= weights_(i) * x_diff * z_diff.transpose();
   }
 
   //calculate Kalman gain K;

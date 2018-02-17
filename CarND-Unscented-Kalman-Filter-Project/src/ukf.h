@@ -89,6 +89,8 @@ public:
 
   void AugmentedSigmaPoints(MatrixXd* Xsig_out);
 
+  void UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig);
+
   /**
    * ProcessMeasurement
    * @param meas_package The latest measurement data of either radar or laser
