@@ -67,9 +67,6 @@ public:
   ///* Augmented state dimension
   int n_aug_;
 
-  // Size of measurements
-  int n_z_;
-
   ///* Sigma point spreading parameter
   double lambda_;
 
@@ -89,7 +86,7 @@ public:
 
   void AugmentedSigmaPoints(MatrixXd* Xsig_out);
 
-  void UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig);
+  void UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig, int n_z);
 
   /**
    * ProcessMeasurement

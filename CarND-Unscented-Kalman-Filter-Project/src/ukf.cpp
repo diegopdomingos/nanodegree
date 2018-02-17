@@ -13,7 +13,7 @@ using std::vector;
  */
 UKF::UKF() {
   // if this is false, laser measurements will be ignored (except during init)
-  use_laser_ = false;
+  use_laser_ = true;
 
   // if this is false, radar measurements will be ignored (except during init)
   use_radar_ = true;
@@ -56,7 +56,6 @@ UKF::UKF() {
   */
   cout<<"Initializing some variables...\n";
   n_x_ = 5;
-  n_z_ = 3;
   n_aug_ = 7;
   lambda_ = 3 - n_aug_;
   
@@ -123,11 +122,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     return;
   }  
 
-  cout<<"previous_timestamp_="<<previous_timestamp_<<endl;
-  cout<<"meas_package.timestamp_="<<meas_package.timestamp_<<endl;
   float dt = (meas_package.timestamp_ - previous_timestamp_) / 1000000.0;//dt - expressed in seconds
   previous_timestamp_ = meas_package.timestamp_;  
-  cout<<"dt="<<dt<<endl;
   Prediction(dt);
 
   if ((meas_package.sensor_type_ == MeasurementPackage::RADAR) && (use_radar_)) {
@@ -266,6 +262,10 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   cout<<"Starting UpdateLidar()\n";
 
+  int n_z = 2;
+
+  MatrixXd Zsig = Xsig_pred_.block(0,0,n_z,2*n_aug_+1);
+  UpdateUKF(meas_package,Zsig,n_z);
 }
 
 /**
@@ -284,11 +284,13 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   cout<<"Starting UpdateRadar()\n";
 
+  int n_z = 3;
+
   //create matrix for sigma points in measurement space
-  MatrixXd Zsig = MatrixXd(n_z_, 2 * n_aug_ + 1);
+  MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1);
 
   //mean predicted measurement
-  VectorXd z_pred = VectorXd(n_z_);
+  VectorXd z_pred = VectorXd(n_z);
  
   //transform sigma points into measurement space
   for(int i=0;i<2*n_aug_+1;i++){
@@ -310,22 +312,22 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   cout<<"z_pred="<<z_pred<<endl;
 
-  UpdateUKF(meas_package, Zsig);
+  UpdateUKF(meas_package, Zsig, n_z);
 
 }
 
-void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig){
+void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig, int n_z){
 
   cout<<"Starting UpdateUKF\n";
 
   //mean predicted measurement
-  VectorXd z_pred = VectorXd(n_z_);
+  VectorXd z_pred = VectorXd(n_z);
 
   //raw measurment by radar
   VectorXd z = meas_package.raw_measurements_;
 
   //measurement covariance matrix S
-  MatrixXd S = MatrixXd(n_z_,n_z_);
+  MatrixXd S = MatrixXd(n_z,n_z);
 
 
   //calculate mean predicted measurement
@@ -348,7 +350,7 @@ void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig){
 
   cout<<"S="<<S<<endl;
   //create matrix for cross correlation Tc
-  MatrixXd Tc = MatrixXd(n_x_, n_z_);
+  MatrixXd Tc = MatrixXd(n_x_, n_z);
 
   //calculate cross correlation matrix
   Tc.fill(0.0);
@@ -369,7 +371,7 @@ void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig){
   }
 
   //calculate Kalman gain K;
-  MatrixXd K = MatrixXd(n_x_, n_z_);
+  MatrixXd K = MatrixXd(n_x_, n_z);
   cout<<"Tc:"<<Tc<<endl;
   cout<<"S_inv"<<S.inverse()<<endl;
   K = Tc*S.inverse();
