@@ -341,16 +341,25 @@ void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig, int n_z){
   MatrixXd S = MatrixXd(n_z,n_z);
 
 
-  //calculate mean predicted measurement
-  for(int i=0;i<2*n_aug_+1;i++){
-      for(int n=0;n<n_z;n++)
-      z_pred(n) += weights_(i)*Zsig(n,i);
+  if(meas_package.sensor_type_ == MeasurementPackage::RADAR){
+    //calculate mean predicted measurement
+    for(int i=0;i<2*n_aug_+1;i++){
+      z_pred(0) += weights_(i)*Zsig(0,i);
+      z_pred(1) += weights_(i)*Zsig(1,i);
+      z_pred(2) += weights_(i)*Zsig(2,i);
+    }
+  } else if(meas_package.sensor_type_ == MeasurementPackage::LASER){
+    //calculate mean predicted measurement
+    for(int i=0;i<2*n_aug_+1;i++){
+      z_pred(0) += weights_(i)*Zsig(0,i);
+      z_pred(1) += weights_(i)*Zsig(1,i);
+    }
   }
-
 
   cout<<"z_pred="<<z_pred<<endl;
 
   //calculate innovation covariance matrix S
+  S.fill(0.0);
   for(int i=0;i<2*n_aug_+1;i++){
       VectorXd z_diff = Zsig.col(i) - z_pred;
       while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
