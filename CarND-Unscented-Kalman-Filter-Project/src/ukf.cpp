@@ -343,9 +343,8 @@ void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig, int n_z){
 
   //calculate mean predicted measurement
   for(int i=0;i<2*n_aug_+1;i++){
-      z_pred(0) += weights_(i)*Zsig(0,i);
-      z_pred(1) += weights_(i)*Zsig(1,i);
-      z_pred(2) += weights_(i)*Zsig(2,i);
+      for(int n=0;n<n_z;n++)
+      z_pred(n) += weights_(i)*Zsig(n,i);
   }
 
 
@@ -353,11 +352,20 @@ void UKF::UpdateUKF(MeasurementPackage meas_package, MatrixXd Zsig, int n_z){
 
   //calculate innovation covariance matrix S
   for(int i=0;i<2*n_aug_+1;i++){
-      S += weights_(i)*(Zsig.col(i)-z_pred)*(Zsig.col(i)-z_pred).transpose();
+      VectorXd z_diff = Zsig.col(i) - z_pred;
+      while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
+      while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
+      S += weights_(i)*z_diff*z_diff.transpose();
   }
-  S(0,0) += std_radr_*std_radr_;
-  S(1,1) += std_radphi_*std_radphi_;
-  S(2,2) += std_radrd_*std_radrd_;
+
+  if(meas_package.sensor_type_ == MeasurementPackage::LASER){
+    S(0,0) += std_laspx_*std_laspx_;
+    S(1,1) += std_laspy_*std_laspy_;
+  } else if (meas_package.sensor_type_ == MeasurementPackage::LASER){
+    S(0,0) += std_radr_*std_radr_;
+    S(1,1) += std_radphi_*std_radphi_;
+    S(2,2) += std_radrd_*std_radrd_;
+  }
 
   cout<<"S="<<S<<endl;
   //create matrix for cross correlation Tc
