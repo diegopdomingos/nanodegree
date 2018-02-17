@@ -115,7 +115,18 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
       x_ << x, y, v, 0, 0;
     } else if ((meas_package.sensor_type_ == MeasurementPackage::LASER) && (use_laser_)){
-      x_ << meas_package.raw_measurements_[0], meas_package.raw_measurements_[1], 0, 0;
+      double px = meas_package.raw_measurements_[0];
+      double py = meas_package.raw_measurements_[1];
+
+      // avoid numbers that can originates very high/low numbers
+      if (fabs(px) < 0.0001){
+         px=0.0001;
+      }
+
+      if (fabs(py) < 0.0001){
+         py=0.0001;
+      }
+      x_ << px, py, 0, 0,0;
     }
     init=true;
     previous_timestamp_ = meas_package.timestamp_;
