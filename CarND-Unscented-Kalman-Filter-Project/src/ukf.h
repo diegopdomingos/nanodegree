@@ -73,6 +73,9 @@ public:
   // Check if the system was initialized
   bool init;
 
+  // Variables to store NIS
+  double NIS_radar_;
+  double NIS_laser_;
 
   /**
    * Constructor
