@@ -16,33 +16,36 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
     * Calculate the RMSE here.
   */
   VectorXd RMSE = VectorXd(4);
-  RMSE << 0,0,0,0;
+  RMSE<< 0,0,0,0;
 
-  VectorXd rmse(4);
-  rmse << 0,0,0,0;
-  // Check the validity of the following inputs:
-  // The estimation vector size should not be zero
+  // check if we have enough data
   if(estimations.size() == 0){
-    cout << "Input is empty" << endl;
-    return rmse;
+    cout<<"The estimations are empty" << endl;
+    return RMSE;
   }
-  // The estimation vector size should equal ground truth vector size
-  if(estimations.size() != ground_truth.size()){
-    cout << "Invalid estimation or ground_truth. Data should have the same size" << endl;
-    return rmse;
-  }
-  // Accumulate squared residuals
-  for(unsigned int i=0; i < estimations.size(); ++i){
-    VectorXd residual = estimations[i] - ground_truth[i];
-    // Coefficient-wise multiplication
-    residual = residual.array()*residual.array();
-    rmse += residual;
-  }
-  // Calculate the mean
-  rmse = rmse / estimations.size();
-  rmse = rmse.array().sqrt();
-  return rmse;
 
+  // check if estimations and ground_truth size are the same
+  if(estimations.size() != ground_truth.size()){
+    cout<<"Theata should have the same size"<<endl;
+    return RMSE;
+  }
+
+  // Calculate the RMSE
+
+
+  // Calculate the residuals
+  for(int i=0; i<estimations.size(); ++i){
+    VectorXd diff = estimations[i]-ground_truth[i];
+    // root
+    diff = diff.array()*diff.array();
+    RMSE += diff;
+  }
+
+  // mean
+  RMSE = RMSE/estimations.size();
+
+  // square
+  RMSE = RMSE.array().sqrt();
 
   return RMSE;
 }
