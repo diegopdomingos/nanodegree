@@ -69,9 +69,6 @@ UKF::UKF() {
 
   init = false;
 
-  // Save the first timestamp
-  previous_timestamp_ = 1477010443050000;
-
   // Initialize the weights_ vector
   weights_ = VectorXd(2*n_aug_+1);
   double weight_0 = lambda_/(lambda_+n_aug_);
@@ -129,13 +126,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       x_ << px, py, 0, 0,0;
     }
     init=true;
-    previous_timestamp_ = meas_package.timestamp_;
     time_us_ = meas_package.timestamp_;
     return;
   }  
 
   float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;//dt - expressed in seconds
-  previous_timestamp_ = meas_package.timestamp_;
   time_us_ = meas_package.timestamp_;
   Prediction(dt);
 

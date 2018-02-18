@@ -70,9 +70,9 @@ public:
   ///* Sigma point spreading parameter
   double lambda_;
 
+  // Check if the system was initialized
   bool init;
 
-  long previous_timestamp_;
 
   /**
    * Constructor
